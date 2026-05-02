@@ -1,0 +1,7 @@
+services:
+  app:
+    image: bargos402/dezhavu_tg_bot:latest
+    container_name: dezhavu_tg_bot
+    restart: always
+    env_file:
+      - .env
