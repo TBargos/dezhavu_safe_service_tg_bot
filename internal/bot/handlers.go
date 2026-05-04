@@ -142,6 +142,8 @@ func handleAdminReply(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, channelID int
 // Старт диалога с поддержкой
 func handleSupportDialog(bot *tgbotapi.BotAPI, chatID int64, user *UserData) {
 	user.State = StateSupportChat
+	now := time.Now()
+	user.LastSupportInteraction = &now
 	sendStartSupport(bot, chatID)
 }
 
