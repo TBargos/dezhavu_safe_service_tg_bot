@@ -1,0 +1,7 @@
+services:
+  app:
+    build: .
+    image: dezhavu_tg_bot:test
+    container_name: dezhavu_tg_bot_test
+    env_file:
+      - .env.test
