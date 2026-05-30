@@ -7,9 +7,9 @@ import (
 // Настраивает команды в главном меню бота (которые появляются при вводе "/")
 func SetMyCommands(bot *tgbotapi.BotAPI) (*tgbotapi.APIResponse, error) {
 	commands := []tgbotapi.BotCommand{
-		{Command: "start", Description: "Главное меню"},
-		{Command: "help", Description: "Помощь"},
-		{Command: "privacy", Description: "Политика конфиденциальности"},
+		{Command: "start", Description: "🏠 Главное меню"},
+		{Command: "help", Description: "🆘 Помощь"},
+		{Command: "privacy", Description: "📋 Политика конфиденциальности"},
 	}
 	return bot.Request(tgbotapi.NewSetMyCommands(commands...))
 }

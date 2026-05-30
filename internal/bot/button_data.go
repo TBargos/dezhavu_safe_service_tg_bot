@@ -8,10 +8,15 @@ type ButtonKey string
 const (
 	// Кнопки главного меню
 	BtnGetAccess = "get_access"
-	BtnNotWork   = "not_working"
-	BtnHelp      = "help"
+	BtnProfile   = "profile" // Используется не только в главном меню
+	BtnHelp      = "help"    // Используется не только в главном меню
 	BtnPrivacy   = "privacy"
 	BtnBackMain  = "back_main"
+
+	// Кнопки личного кабинета
+	BtnPaySubscription = BtnGetAccess // Тот же сценарий, что и у кнопки получения доступа. Существует, т.к. визуально отличается
+	BtnUpdateProfile   = "update_profile"
+	BtnShowTextManual  = "show_text_manual"
 
 	// Кнопки выбора плана
 	BtnPlan1  = "plan_1"
@@ -20,4 +25,7 @@ const (
 
 	// Кнопки поддержки
 	BtnSupportDialog = "support_dialog"
+
+	// Кнопки инструкции
+	BtnSendVideoManual = "video_manual" // TODO: не реализовано
 )

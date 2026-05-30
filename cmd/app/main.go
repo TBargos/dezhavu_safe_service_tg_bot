@@ -18,13 +18,18 @@ func main() {
 	}
 
 	// Получаем канал для заявок и поддержки
-	channelIDStr := os.Getenv("CHANNEL_ID")
-	if channelIDStr == "" {
-		log.Fatal("CHANNEL_ID не задан")
+	groupIDStr := os.Getenv("GROUP_ID")
+	if groupIDStr == "" {
+		log.Fatal("GROUP_ID не задан")
 	}
-	channelID, err := strconv.ParseInt(channelIDStr, 10, 64)
+	groupID, err := strconv.ParseInt(groupIDStr, 10, 64)
 	if err != nil {
-		log.Fatal("невалидный CHANNEL_ID: %w", err)
+		log.Fatal("невалидный GROUP_ID: %w", err)
+	}
+
+	// Проверяет пути к assets
+	if err := bot_stuff.CheckAssets(); err != nil {
+		log.Printf("asset check failed: %v", err) // пока файлы не столь обязательны для работы
 	}
 
 	// Инициализация бота с помощью токена
@@ -46,5 +51,5 @@ func main() {
 	updates := bot.GetUpdatesChan(u)
 
 	// Запускаем бесконечный цикл обработки обновлений
-	bot_stuff.InfiniteLoop(updates, bot, channelID)
+	bot_stuff.InfiniteLoop(updates, bot, groupID)
 }

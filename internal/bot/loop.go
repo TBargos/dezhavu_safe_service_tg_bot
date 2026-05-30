@@ -8,116 +8,158 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func InfiniteLoop(updates tgbotapi.UpdatesChannel, bot *tgbotapi.BotAPI, channelID int64) {
+func InfiniteLoop(updates tgbotapi.UpdatesChannel, bot *tgbotapi.BotAPI, groupID int64) {
 	for update := range updates {
 		log.Printf("incoming update: %+v", update)
 
+		msg := update.Message
+		switch {
 		// Обработка нажатий на inline-кнопки
-		if update.CallbackQuery != nil {
+		case update.CallbackQuery != nil:
 			callback := update.CallbackQuery
 			log.Printf("callback received: from=%s data=%s", callback.From.UserName, callback.Data)
 			processCallback(bot, callback)
-			continue
-		}
 
-		msg := update.Message
-		// Если не коллбэк, но и не сообщение - не обрабатываем, пропускаем дальше
-		if msg == nil {
-			log.Printf("skip update (no message, no callback): %+v", update)
-			continue
-		}
+		// Если пришло сообщение
+		case msg != nil:
+			processMessage(bot, msg, groupID)
 
-		log.Printf("message received: chat_id=%d user=%s", msg.Chat.ID, msg.From.UserName)
-		// На этом моменте
-		user := getUser(msg.From)
-
-		// Если админ в чате заявок ответил на пришедшую форму, то обрабатываем его ответ
-		if msg.ReplyToMessage != nil {
-			log.Printf(
-				"admin reply detected: chat_id=%d reply_to_msg_id=%d",
-				msg.Chat.ID,
-				msg.ReplyToMessage.MessageID,
-			)
-			handleAdminReply(bot, msg, channelID)
-			continue
-		}
-
-		// Если это сообщение в открытом диалоге поддержки
-		if user.State == StateSupportChat && !strings.HasPrefix(msg.Text, "/") {
-			log.Printf(
-				"support chat message: user=%s text=%q",
-				msg.From.UserName,
-				msg.Text,
-			)
-			handleUserAppeal(bot, update.Message, user, channelID)
-			continue
-		}
-
-		// Если же была не inline-кнопка, а кнопка из меню
-		text := msg.Text
-		chatID := msg.Chat.ID
-		username := msg.From.UserName
-
-		if strings.HasPrefix(text, "/") {
-			user.State = StateIdle
-			switch text {
-			case "/start":
-				sendMainMenu(bot, chatID, username)
-				continue
-
-			case "/help":
-				sendHelp(bot, chatID)
-				continue
-
-			case "/privacy":
-				sendPrivacy(bot, chatID)
-				continue
-
-			default:
-				log.Printf("using unfamiliar command=%q", text)
-				continue
-			}
-		}
-
-		// Если событие (update) ничего из вышеперечисленного, то обрабатываем состояние пользователя
-		switch user.State {
-		case StateWaitEmail:
-			handleEmail(bot, msg, user, channelID)
-
+		// Если не коллбэк, не сообщение - не обрабатываем, пропускаем дальше
 		default:
-			if _, err := bot.Send(tgbotapi.NewMessage(chatID, "Используйте кнопки меню 👇")); err != nil {
-				log.Printf("telegram send error: %v", err)
-			}
+			log.Printf("skip update (no message, no callback): %+v", update)
 		}
 	}
 }
 
 // Обработка callback (приходят при нажатии на inline-кнопки)
 func processCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
-	bot.Request(tgbotapi.NewCallback(callback.ID, "")) // Убирает "часики" на кнопке
-	removeKeyboard(bot, callback)                      // Убирает клавиатуру
-
-	chatID := callback.From.ID
+	userID := callback.From.ID
 	data := callback.Data
 	user_data := getUser(callback.From)
 
-	// Обработка случаев, независящих от состояния (стэйта) пользователя
+	keepKeyboard := false // Флаг, который показывает, нужно ли после обработки коллбэка убрать клавиатуру.
+
+	// Сначала проверяем на кнопки вне стэйтов
+	isNonState := true // Флаг, который показывает, что коллбек обработан в этом блоке и не нужно смотреть на стэйт
 	switch data {
+	case BtnProfile:
+		handleProfile(bot, userID, user_data)
 	case BtnSupportDialog:
-		handleSupportDialog(bot, chatID, user_data)
+		handleSupportDialog(bot, userID, user_data)
+	case BtnHelp:
+		handleHelp(bot, userID, user_data)
+	case BtnShowTextManual:
+		handleShowTextManual(bot, userID, user_data)
+		keepKeyboard = true // Оставляем клавиатуру, так как не страшно, если тут пользователь будет прожимать кнопки
+	case BtnSendVideoManual:
+		handleSendVideoManual(bot, userID, user_data)
+		keepKeyboard = true // Оставляем клавиатуру, так как не страшно, если тут пользователь будет прожимать кнопки
+	case BtnPrivacy:
+		handlePrivacy(bot, userID, user_data)
+	default:
+		isNonState = false
+	}
+
+	// Если это не внеочередное событие, то смотрим на стэйт и выбираем сценарий обработки коллбэка
+	if !isNonState {
+		switch user_data.State {
+		case StateIdle:
+			if data == BtnUpdateProfile {
+				// DEBUG
+				log.Printf("callback.markup: %+v\n", callback.Message.ReplyMarkup)
+
+				handleProfileUpdate(bot, userID, callback)
+				keepKeyboard = true // Оставляем клавиатуру, так как будет обновление сообщения, а не отправка нового
+			}
+			handleMainMenu(bot, callback, user_data)
+
+		case StateChoosePlan:
+			handlePlan(bot, callback, user_data)
+		}
+	}
+
+	bot.Request(tgbotapi.NewCallback(callback.ID, "")) // Убирает "часики" на кнопке
+	if !keepKeyboard {
+		removeKeyboard(bot, callback) // Убирает клавиатуру
+	}
+}
+
+// Обработка команд
+func processCommand(bot *tgbotapi.BotAPI, msg *tgbotapi.Message) {
+	text := msg.Text
+	chatID := msg.Chat.ID
+	username := msg.From.UserName
+
+	log.Printf("command received: chat_id=%d command=%s", chatID, text)
+
+	switch text {
+	case "/start":
+		sendMainMenu(bot, chatID, username)
+
+	case "/help":
+		sendHelp(bot, chatID)
+
+	case "/privacy":
+		sendPrivacy(bot, chatID)
+
+	default:
+		log.Printf("using unfamiliar command=%q", text)
+	}
+}
+
+func processMessage(bot *tgbotapi.BotAPI, msg *tgbotapi.Message, groupID int64) {
+	log.Printf("message received: chat_id=%d", msg.Chat.ID)
+	user := getUser(msg.From)
+
+	// Сначала проверяем на сценарии вне стэйтов
+	switch {
+
+	// Пришёл reply на сообщение бота
+	case msg.ReplyToMessage != nil:
+		log.Printf(
+			"reply received: msg.Chat.ID=%d msg.From.ID=%d msg.ReplyToMessage.MessageID=%d msg.ReplyToMessage.From.ID=%d msg.ReplyToMessage.Chat.ID=%d",
+			msg.Chat.ID,
+			msg.From.ID,
+			msg.ReplyToMessage.MessageID,
+			msg.ReplyToMessage.From.ID,
+			msg.ReplyToMessage.Chat.ID,
+		)
+		// Если это reply на сообщение бота в групповом чате, то обрабатываем как ответ админа
+		if msg.ReplyToMessage.Chat.ID == groupID {
+			log.Printf(
+				"admin reply detected: chat_id=%d reply_to_msg_id=%d",
+				msg.Chat.ID,
+				msg.ReplyToMessage.MessageID,
+			)
+			handleAdminReply(bot, msg, groupID)
+			return
+		}
+	// Команда от пользователя (это сообщение, начинающееся с "/")
+	case msg.IsCommand():
+		user.State = StateIdle
+		processCommand(bot, msg)
 		return
 	}
 
-	// Перенаправление контекста в зависимости от выставленного стэйта (состояния) пользователя
-	switch user_data.State {
-	case StateIdle:
-		handleMainMenu(bot, callback, user_data)
-
-	case StateChoosePlan:
-		handlePlan(bot, callback, user_data)
-
+	// Если это не внеочередное событие, то смотрим на стэйт и выбираем сценарий обработки сообщения
+	switch user.State {
 	case StateWaitEmail:
-		// ничего не делаем — ждём текст
+		handleEmail(bot, msg, user)
+		return
+	case StateSupportChat:
+		log.Printf(
+			"support chat message: chat_id=%d text=%q",
+			msg.Chat.ID,
+			msg.Text,
+		)
+		handleUserAppeal(bot, msg, user, groupID)
+		return
+	}
+
+	// Если не подходит ни один из сценариев, просто отправляем юзеру напоминание использовать кнопки меню
+	_, err := bot.Send(tgbotapi.NewMessage(msg.Chat.ID, "Используйте кнопки меню 👇"))
+	if err != nil {
+		log.Printf("telegram send error: %v", err)
 	}
 }
 
