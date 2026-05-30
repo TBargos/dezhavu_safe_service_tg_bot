@@ -10,14 +10,12 @@ import (
 
 func InfiniteLoop(updates tgbotapi.UpdatesChannel, bot *tgbotapi.BotAPI, groupID int64) {
 	for update := range updates {
-		log.Printf("incoming update: %+v", update)
-
 		msg := update.Message
 		switch {
 		// Обработка нажатий на inline-кнопки
 		case update.CallbackQuery != nil:
 			callback := update.CallbackQuery
-			log.Printf("callback received: from=%s data=%s", callback.From.UserName, callback.Data)
+			log.Printf("callback received: from=%d data=%s", callback.From.ID, callback.Data)
 			processCallback(bot, callback)
 
 		// Если пришло сообщение
@@ -26,7 +24,7 @@ func InfiniteLoop(updates tgbotapi.UpdatesChannel, bot *tgbotapi.BotAPI, groupID
 
 		// Если не коллбэк, не сообщение - не обрабатываем, пропускаем дальше
 		default:
-			log.Printf("skip update (no message, no callback): %+v", update)
+			log.Print("skip update (no message, no callback)")
 		}
 	}
 }
@@ -65,9 +63,6 @@ func processCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
 		switch user_data.State {
 		case StateIdle:
 			if data == BtnUpdateProfile {
-				// DEBUG
-				log.Printf("callback.markup: %+v\n", callback.Message.ReplyMarkup)
-
 				handleProfileUpdate(bot, userID, callback)
 				keepKeyboard = true // Оставляем клавиатуру, так как будет обновление сообщения, а не отправка нового
 			}

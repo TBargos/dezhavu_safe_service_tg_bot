@@ -1,12 +1,9 @@
 package bot
 
 import (
-	"bytes"
 	"dezhavu_tg_bot/internal/models"
-	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -29,41 +26,6 @@ func sendToTelegramChannel(bot *tgbotapi.BotAPI, userID int64, username string, 
 	_, err := bot.Send(msg)
 	if err != nil {
 		return fmt.Errorf("send to channel: %w", err)
-	}
-
-	return nil
-}
-
-func sendToServer(chatID int64, username string, plan, email string) error {
-
-	serverURL := "http://your-server.com/api/zayavki"
-
-	payload := map[string]interface{}{
-		"chat_id":  chatID,
-		"username": username,
-		"plan":     plan,
-		"email":    email,
-	}
-
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("marshal payload: %w", err)
-	}
-
-	req, err := http.NewRequest(http.MethodPost, serverURL, bytes.NewBuffer(body))
-	if err != nil {
-		return fmt.Errorf("create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("server returned status %s", resp.Status)
 	}
 
 	return nil
