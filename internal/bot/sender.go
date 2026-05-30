@@ -321,11 +321,30 @@ func sendManual(bot *tgbotapi.BotAPI, userID int64) {
 }
 
 func sendVideoManual(bot *tgbotapi.BotAPI, chatID int64) {
-	video := tgbotapi.NewVideo(chatID, tgbotapi.FilePath("assets/videos/manual.mp4"))
-	_, err := bot.Send(video)
+	// Пытаемся взять FileID из кэша.
+	fileID := GetFileID(VideoManual)
+
+	var video tgbotapi.VideoConfig
+	needUpdateCache := false
+
+	if fileID != "" {
+		video = tgbotapi.NewVideo(chatID, tgbotapi.FileID(fileID))
+	} else {
+		// Если FileID ещё неизвестен, отправляем локальный файл.
+		video = tgbotapi.NewVideo(chatID, tgbotapi.FilePath(GetPathAsset(VideoManual)))
+		needUpdateCache = true
+	}
+
+	msg, err := bot.Send(video)
 	if err != nil {
 		log.Printf("send video: %v", err)
 		_, _ = bot.Send(tgbotapi.NewMessage(chatID, "Видеоинструкция сейчас недоступна 😔"))
+		return
+	}
+
+	// Если видео было отправлено из локального файла, сохраняем полученный от Telegram FileID
+	if needUpdateCache && msg.Video != nil {
+		SetFileID(VideoManual, msg.Video.FileID)
 	}
 }
 
