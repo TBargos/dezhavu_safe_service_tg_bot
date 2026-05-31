@@ -105,7 +105,11 @@ func sendPlanSelectionMenu(bot *tgbotapi.BotAPI, chatID int64) {
 
 func sendPrivacy(bot *tgbotapi.BotAPI, chatID int64) {
 	msg := tgbotapi.NewMessage(chatID, privacyText)
-	msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("👈 Главное меню", BtnBackMain),
+		),
+	)
 	if _, err := bot.Send(msg); err != nil {
 		log.Printf("telegram send error: %v", err)
 	}
