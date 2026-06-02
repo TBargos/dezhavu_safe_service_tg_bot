@@ -287,12 +287,19 @@ func prepareProfileInfo(userID int64) *models.ProfileInfoResponse {
 
 			// Если есть дата окончания, форматируем её и считаем оставшееся время
 			if result.Obj.ExpiredAt != nil {
-				// Приведение к московскому времени (UTC+3). Telegram API не предоставляет часовой пояс пользователя
-				localExpireTime := result.Obj.ExpiredAt.In(
-					time.FixedZone("MSK", 3*60*60),
-				)
-				info.ExpireDate = helperformatRussianDate(localExpireTime)
-				info.RemainTime = helperFormatRussianRemainingTime(localExpireTime)
+				infiniteTime := time.Date(9999, 12, 31, 23, 59, 0, 0, time.UTC)
+				if !result.Obj.ExpiredAt.Before(infiniteTime) {
+					// Если дата окончания очень далеко в будущем, считаем подписку бессрочной
+					info.ExpireDate = "Бесконечно"
+					info.RemainTime = "∞"
+				} else {
+					// Приведение к московскому времени (UTC+3). Telegram API не предоставляет часовой пояс пользователя
+					localExpireTime := result.Obj.ExpiredAt.In(
+						time.FixedZone("MSK", 3*60*60),
+					)
+					info.ExpireDate = helperformatRussianDate(localExpireTime)
+					info.RemainTime = helperFormatRussianRemainingTime(localExpireTime)
+				}
 
 				// Формируем ссылку для подключения
 				info.ConnectLink = helperBuildSubscriptionLink(result.Obj.SubscriptionID)

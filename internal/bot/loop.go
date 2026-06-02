@@ -65,8 +65,9 @@ func processCallback(bot *tgbotapi.BotAPI, callback *tgbotapi.CallbackQuery) {
 			if data == BtnUpdateProfile {
 				handleProfileUpdate(bot, userID, callback)
 				keepKeyboard = true // Оставляем клавиатуру, так как будет обновление сообщения, а не отправка нового
+			} else {
+				handleMainMenu(bot, callback, user_data)
 			}
-			handleMainMenu(bot, callback, user_data)
 
 		case StateChoosePlan:
 			handlePlan(bot, callback, user_data)
